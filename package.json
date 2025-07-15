@@ -22,6 +22,7 @@
     "@tiptap/react": "^2.25.0",
     "@tiptap/starter-kit": "^2.25.0",
     "axios": "^1.10.0",
-    "next": "^15.3.5"
+    "next": "^15.3.5",
+    "react": "^19.1.0"
   }
 }
