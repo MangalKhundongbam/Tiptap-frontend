@@ -1,127 +1,120 @@
 // components/Editor.tsx
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import api from '../utils/api';
+import { store } from "@/app/store/storene"
+import { loadData, storeData } from '../utils/indexedDB';
 
-export default function TiptapEditor() {
+type EditorProps = {
+    index: number
+    filename: string | null
+}
+
+export const TiptapEditor1 = ({ index, filename }: EditorProps) => {
   const [loading, setLoading] = useState(false);
+  const { setEditor1 } = store()
 
   const editor = useEditor({
+    onCreate({ editor }) { setEditor1(editor) },
+    async onUpdate({ editor }) {
+      const html = editor.getHTML()
+      const value = {
+        [index]: html,
+      }
+      await storeData({ key: "uploadedHtmls", values: value })
+    },
     extensions: [StarterKit, Underline],
-    content: '<p>Start editing...</p>',
+    content: '<p>Start editing 1...</p>',
   });
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
-      alert('Please upload a valid PDF file.');
-      return;
-    }
 
-    const formData = new FormData();
-    formData.append('file', file);
+  const loadedIndexRef = useRef<number | null>(null);
 
-    setLoading(true);
-    try {
-      const res = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      editor?.commands.setContent(res.data.html); // Assuming { html: "<p>Converted</p>" }
-    } catch (err) {
-      console.error('Upload error:', err);
-      alert('Upload failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const loadContentForIndex = async () => {
+      if (editor && index !== loadedIndexRef.current) {
+        setLoading(true);
+        
+        const res = await loadData("uploadedHtmls");
+        if (res && res.values && res.values[index] !== undefined) {
+          editor.commands.setContent(res.values[index], false);
+        } else {
+          // Set default content if nothing is loaded for the new index
+          editor.commands.setContent('<p>Start editing 1...</p>', false);
+        }
+        
+        loadedIndexRef.current = index; // Update the ref to the current index
+        setLoading(false);
+      }
+    };
 
-  const handleDownload = async () => {
-    try {
-      const res = await api.post('/download', { responseType: 'blob' });
+    loadContentForIndex();
+    console.log("INDEX: ",index)
+    console.log("FILENAME: ",filename)
+  }, [editor, index]);
 
-      const blob = new Blob([res.data], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'output.html';
-      a.click();
-
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Download failed');
-    }
-  };
-
-  if(!editor) return null;
+  if (!editor) return null;
 
   return (
     <div className="p-4 text-black">
-      <div className="flex gap-2 mb-4">
-        <input type="file" accept="application/pdf" onChange={handleUpload} />
-        <button onClick={handleDownload} className="bg-blue-500 text-white px-4 py-2 rounded">
-          Download HTML
-        </button>
-      </div>
       {loading && <p>Loading PDF...</p>}
-
       <div className="max-w-2xl mx-auto text-black">
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`px-3 py-1 border rounded ${editor.isActive('bold') ? 'bg-black text-white' : 'bg-white'
-              }`}
-          >
-            Bold
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`px-3 py-1 border rounded ${editor.isActive('italic') ? 'bg-black text-white' : 'bg-white'
-              }`}
-          >
-            Italic
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-            className={`px-3 py-1 border rounded ${editor.isActive('underline') ? 'bg-black text-white' : 'bg-white'
-              }`}
-          >
-            Underline
-          </button>
-          {/* <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={`px-3 py-1 border rounded ${editor.isActive('heading', { level: 1 }) ? 'bg-black text-white' : 'bg-white'
-            }`}
-        >
-          H1
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={`px-3 py-1 border rounded ${editor.isActive('heading', { level: 2 }) ? 'bg-black text-white' : 'bg-white'
-            }`}
-        >
-          H2
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={`px-3 py-1 border rounded ${editor.isActive('heading', { level: 3 }) ? 'bg-black text-white' : 'bg-white'
-            }`}
-        >
-          H3
-        </button> */}
-        </div>
-
         <EditorContent
           editor={editor}
           className="border p-4 rounded bg-white shadow-sm prose prose-sm max-w-none"
         />
       </div>
 
-      {/* <EditorContent editor={editor} className="border p-4 min-h-[300px]" /> */}
     </div>
   );
 }
+
+// export const TiptapEditor2 = () => {
+//   const [loading, setLoading] = useState(false);
+//   const { setEditor2, index } = store()
+
+//   const editor = useEditor({
+//     onCreate({ editor }) { setEditor2(editor) },
+//     async onUpdate({ editor }) {
+//       const translatedHtml = editor.getHTML()
+//       const value = {
+//         [index]: translatedHtml,
+//       }
+//       await storeData({ key: "translatedHtmls", values: value })
+//     },
+//     extensions: [StarterKit, Underline],
+//     content: '<p>Start editing 2...</p>',
+//   });
+
+//   useEffect(() => {
+//     setLoading(true)
+//     const loadInitial = async () => {
+//       const res = await loadData("translatedHtmls")
+//       if (res && res.values && res.values[index] !== undefined) {
+//         editor?.commands.setContent(res.values[index], false)
+//       }
+//     }
+//     loadInitial()
+//     return () => (
+//       setLoading(false)
+//     )
+//   }, [index, editor])
+
+//   if (!editor) return null;
+
+//   return (
+//     <div className="p-4 text-black">
+//       {loading && <p>Loading PDF...</p>}
+//       <div className="max-w-2xl mx-auto text-black">
+//         <EditorContent
+//           editor={editor}
+//           className="border p-4 rounded bg-white shadow-sm prose prose-sm max-w-none"
+//         />
+//       </div>
+
+//     </div>
+//   );
+// }
